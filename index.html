@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>美吉樂早餐｜線上點餐</title>
+<style>
+:root{--ink:#242424;--muted:#777;--line:#ececec;--accent:#e58b45;--soft:#fff5ec;--green:#23845b}
+*{box-sizing:border-box}body{margin:0;background:#fafafa;color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.wrap{max-width:1080px;margin:auto;padding:16px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:22px;font-weight:850}.brand small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+button,.btn{border:0;border-radius:12px;padding:11px 15px;background:var(--accent);color:white;font-weight:750;cursor:pointer}
+button.secondary{background:#f0f0f0;color:#333}button.danger{background:#b94444}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tabs button{background:#f3f3f3;color:#555}.tabs button.active{background:var(--ink);color:white}
+main{max-width:1080px;margin:22px auto;padding:0 16px}.hero{background:var(--soft);padding:22px;border-radius:18px;margin-bottom:18px}
+.hero h1{margin:0 0 6px;font-size:25px}.muted{color:var(--muted);font-size:14px}
+.categories{display:flex;gap:8px;overflow:auto;padding:4px 0 14px}.categories button{white-space:nowrap;background:white;color:#555;border:1px solid var(--line)}.categories button.active{background:var(--ink);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.card{background:white;border:1px solid var(--line);border-radius:16px;overflow:hidden}.foodpic{height:130px;background:#f5eee8;display:grid;place-items:center;font-size:54px}
+.cardbody{padding:14px}.card h3{margin:0 0 5px}.price{font-weight:850;color:#b96a2c;font-size:18px}.cardfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+input,select,textarea{width:100%;padding:11px;border:1px solid #ddd;border-radius:10px;font:inherit;background:white}
+label{font-size:13px;color:#555;display:block;margin:10px 0 5px}.row{display:flex;gap:10px}.row>*{flex:1}
+.cartline,.orderline{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.total{font-size:21px;font-weight:900;text-align:right;padding:14px 0}
+.hidden{display:none!important}.pill{font-size:12px;background:#f2f2f2;border-radius:99px;padding:4px 9px}.status{color:var(--green);font-weight:700}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:12px 18px;border-radius:12px;display:none;z-index:20}
+#qrcode{display:flex;justify-content:center;padding:12px}
+footer{text-align:center;color:#888;font-size:12px;padding:30px}
+@media(max-width:650px){.admin-grid{grid-template-columns:1fr}.top{align-items:flex-start}.brand{font-size:19px}.wrap{padding:12px}main{padding:0 12px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+ <div class="top"><div class="brand">☀️ 美吉樂 <small>現點現做・美好的一天從早餐開始</small></div>
+ <button id="cartJump">購物車 <span id="cartCount">0</span></button></div>
+ <div class="tabs"><button class="active" data-view="shop">線上點餐</button><button data-view="records">查詢訂單</button><button data-view="admin">店家管理</button></div>
+</div></header>
+<main>
+<section id="shopView">
+ <div class="hero"><h1>今天想吃點什麼？</h1><div class="muted">選好餐點後送出訂單，店家確認後即可取餐。</div></div>
+ <div class="categories" id="categories"></div><div class="grid" id="products"></div>
+ <div class="panel" id="cartPanel" style="margin-top:20px"><h2>🛒 我的購物車</h2><div id="cartItems" class="muted">目前尚未選購商品</div>
+  <div class="total" id="cartTotal">合計 NT$0</div>
+  <div class="row"><div><label>取餐方式</label><select id="pickup"><option>自取</option><option>內用</option></select></div><div><label>希望取餐時間</label><input id="pickupTime" type="time"></div></div>
+  <div class="row"><div><label>姓名／稱呼</label><input id="customerName" placeholder="例如：王先生"></div><div><label>聯絡電話</label><input id="phone" type="tel" placeholder="方便店家聯絡"></div></div>
+  <label>備註（例如：不要香菜）</label><textarea id="note" rows="2" placeholder="餐點需求或其他備註"></textarea>
+  <p class="muted">送出訂單後，請留意店家確認狀態。此網站目前不收取線上付款。</p>
+  <button id="submitOrder" style="width:100%">送出訂單</button>
+ </div>
+</section>
+<section id="recordsView" class="hidden">
+ <div class="panel"><h2>📋 訂單查詢</h2><label>輸入下單時的電話</label><div class="row"><input id="lookupPhone" placeholder="09xxxxxxxx"><button id="lookupBtn">查詢</button></div><div id="myOrders"></div></div>
+</section>
+<section id="adminView" class="hidden">
+ <div class="hero"><h1>店家管理後台</h1><div class="muted">管理訂單、商品及今日營運狀況。</div></div>
+ <div class="panel" id="adminLogin"><h3>管理員登入</h3><label>管理員密碼</label><input id="adminPassword" type="password" placeholder="輸入管理員密碼"><button id="loginBtn" style="margin-top:12px">登入</button><p class="muted">可以罷工嗎。</p></div>
+ <div id="adminArea" class="hidden">
+  <div class="admin-grid">
+   <div class="panel"><h3>⚙️ 系統設定</h3><p class="muted">所有裝置共用同一個雲端後端；網址統一設定於網站程式，不需逐台設定。</p><button class="secondary" id="saveConfig" style="margin-top:10px">查看設定說明</button></div>
+   <div class="panel"><h3>🔗 QR Code 點餐</h3><p class="muted">將此 QR Code 印出，顧客掃描即可開啟點餐頁面。</p><div id="qrcode"></div><button class="secondary" id="printQr">列印 QR Code</button></div>
+  </div>
+  <div class="panel"><h3>📦 訂單管理 <button class="secondary" id="refreshOrders">重新整理</button></h3><div id="adminOrders"></div></div>
+  <div class="panel"><h3>🍳 商品管理</h3><div class="row"><div><label>商品名稱</label><input id="newName" placeholder="例如：火腿蛋吐司"></div><div><label>價格</label><input id="newPrice" type="number" min="1" placeholder="65"></div></div><div class="row"><div><label>分類</label><select id="newCategory"><option>吐司</option><option>漢堡</option><option>蛋餅</option><option>飲料</option><option>其他</option></select></div><div><label>圖示（emoji）</label><input id="newEmoji" placeholder="🥪" maxlength="4"></div></div><button id="addProduct" style="margin-top:12px">新增商品</button><div id="adminProducts" style="margin-top:12px"></div></div>
+ </div>
+</section>
+</main>
+<footer>美吉樂早餐線上點餐系統｜著作權歸Ccy所有</footer><div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// 請將下方網址換成部署後的 Apps Script 網頁應用程式網址；所有裝置共用同一個網址。
+const API_URL = "https://script.google.com/macros/s/AKfycbzI4U2O2lWfwIBA0lHMmDBk6vsEifHEN27M6j28LchYkzXDo8N8be-eHE5V3B7YWbCqEg/exec";
+const $=id=>document.getElementById(id);
+let products=[], cart={}, category="全部", adminOn=false, adminKey=sessionStorage.getItem("mgAdminKey")||"";
+const money=n=>"NT$"+Number(n||0).toLocaleString("zh-TW");
+function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2600)}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function apiReady(){return API_URL.startsWith("https://script.google.com/") && API_URL.endsWith("/exec")}
+async function api(action,data={},method="POST"){
+  if(!apiReady()) throw Error("尚未設定雲端後端網址，請先在 index.html 設定 API_URL");
+  let url=API_URL, opts={method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,...data,adminKey})};
+  if(method==="GET"){
+    const u=new URL(API_URL); Object.entries({action,...data,adminKey}).forEach(([k,v])=>u.searchParams.set(k,v));
+    url=u.toString(); opts={method:"GET"};
+  }
+  const res=await fetch(url,opts); const j=await res.json();
+  if(!j.ok) throw Error(j.error||"雲端伺服器錯誤");
+  return j;
+}
+function total(){return Object.entries(cart).reduce((s,[id,q])=>s+(products.find(p=>String(p.id)===String(id))?.price||0)*q,0)}
+function renderCats(){
+  let cats=["全部",...new Set(products.map(p=>p.category))];
+  $("categories").innerHTML=cats.map(c=>`<button class="${c===category?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{category=b.dataset.cat;renderCats();renderProducts()});
+}
+function renderProducts(){
+  $("products").innerHTML=products.filter(p=>category==="全部"||p.category===category).map(p=>`<article class="card"><div class="foodpic">${esc(p.emoji||"🍽️")}</div><div class="cardbody"><h3>${esc(p.name)}</h3><div class="muted">${esc(p.desc||"美味現做")}</div><div class="cardfoot"><span class="price">${money(p.price)}</span><button data-add="${p.id}">加入</button></div></div></article>`).join("");
+  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{cart[b.dataset.add]=(cart[b.dataset.add]||0)+1;renderCart();toast("已加入購物車")});
+}
+function renderCart(){
+  let rows=Object.entries(cart).filter(([id,q])=>q>0);
+  $("cartCount").textContent=rows.reduce((s,[,q])=>s+q,0);
+  $("cartItems").innerHTML=rows.length?rows.map(([id,q])=>{let p=products.find(x=>String(x.id)===String(id));return p?`<div class="cartline"><div><b>${esc(p.name)}</b><div class="muted">${money(p.price)} × ${q}</div></div><div><button class="secondary" data-minus="${id}">−</button> ${q} <button data-plus="${id}">＋</button></div></div>`:""}).join(""):"目前尚未選購商品";
+  $("cartTotal").textContent="合計 "+money(total());
+  document.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>{let id=b.dataset.minus;cart[id]--;if(cart[id]<=0)delete cart[id];renderCart()});
+  document.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>{cart[b.dataset.plus]++;renderCart()});
+}
+async function loadProducts(){
+  try{const j=await api("products",{},"GET");products=j.products||[];renderCats();renderProducts();renderCart()}
+  catch(e){$("products").innerHTML=`<div class="panel">商品資料載入失敗：${esc(e.message)}</div>`}
+}
+async function submit(){
+  let items=Object.entries(cart).map(([id,q])=>{let p=products.find(x=>String(x.id)===String(id));return p?{id:p.id,name:p.name,price:Number(p.price),qty:q}:null}).filter(Boolean);
+  if(!items.length)return toast("請先選擇餐點");
+  let name=$("customerName").value.trim(),phone=$("phone").value.trim();
+  if(!name||!phone)return toast("請填寫姓名及電話");
+  let order={id:"MG"+Date.now().toString().slice(-8),createdAt:new Date().toISOString(),name,phone,pickup:$("pickup").value,pickupTime:$("pickupTime").value,note:$("note").value,items,total:items.reduce((s,x)=>s+x.price*x.qty,0),status:"新訂單"};
+  try{await api("newOrder",{order});cart={};renderCart();$("customerName").value=$("phone").value=$("note").value="";toast("訂單已送出！訂單編號 "+order.id);showView("records");$("lookupPhone").value=phone;lookup()}
+  catch(e){toast("送出失敗："+e.message)}
+}
+function showView(v){
+  document.querySelectorAll("main>section").forEach(s=>s.classList.add("hidden"));$(v+"View").classList.remove("hidden");
+  document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  if(v==="admin"&&adminOn)loadAdmin();if(v==="records")$("lookupPhone").focus();
+}
+document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>showView(b.dataset.view));
+$("cartJump").onclick=()=>{$("shopView").classList.remove("hidden");$("cartPanel").scrollIntoView({behavior:"smooth"})};
+$("submitOrder").onclick=submit;
+function statusTag(s){return `<span class="pill">${esc(s)}</span>`}
+function orderHtml(o,admin=false){
+ return `<div class="panel"><div class="row"><b>${esc(o.id)}</b><span>${statusTag(o.status)}</span></div><div class="muted">${new Date(o.createdAt).toLocaleString("zh-TW")}｜${esc(o.name)}｜${esc(o.phone)}</div>${(o.items||[]).map(i=>`<div class="orderline"><span>${esc(i.name)} × ${i.qty}</span><b>${money(i.price*i.qty)}</b></div>`).join("")}<div class="total">${money(o.total)}</div><div class="muted">${esc(o.pickup)} ${esc(o.pickupTime||"")}｜備註：${esc(o.note||"無")}</div>${admin?`<label>更新狀態</label><div class="row"><select id="st-${esc(o.id)}"><option ${o.status==="新訂單"?"selected":""}>新訂單</option><option ${o.status==="製作中"?"selected":""}>製作中</option><option ${o.status==="可取餐"?"selected":""}>可取餐</option><option ${o.status==="已完成"?"selected":""}>已完成</option><option ${o.status==="已取消"?"selected":""}>已取消</option></select><button data-update="${esc(o.id)}">更新</button></div>`:""}</div>`;
+}
+async function lookup(){
+ let phone=$("lookupPhone").value.trim();if(!phone)return toast("請輸入電話");
+ try{let j=await api("myOrders",{phone},"GET"),list=j.orders||[];$("myOrders").innerHTML=list.length?list.map(o=>orderHtml(o)).join(""):"查無訂單"}
+ catch(e){toast("查詢失敗："+e.message)}
+}
+$("lookupBtn").onclick=lookup;
+function renderAdminOrders(list){
+ $("adminOrders").innerHTML=list.length?list.map(o=>orderHtml(o,true)).join(""):"目前沒有訂單";
+ document.querySelectorAll("[data-update]").forEach(b=>b.onclick=async()=>{let id=b.dataset.update,s=$("st-"+id).value;try{await api("updateStatus",{id,status:s});toast(s==="已完成"?"訂單已完成並已歸檔":"訂單狀態已更新");loadAdmin()}catch(e){toast(e.message)}});
+}
+async function loadAdmin(){
+ try{let j=await api("orders");renderAdminOrders(j.orders||[]);let p=await api("products",{},"GET");products=p.products||[];renderAdminProducts();renderCats();renderProducts()}
+ catch(e){$("adminOrders").textContent="讀取失敗："+e.message}
+}
+function renderAdminProducts(){
+ $("adminProducts").innerHTML=products.map(p=>`<div class="cartline"><span>${esc(p.emoji)} ${esc(p.name)}｜${money(p.price)}</span><button class="danger" data-del="${p.id}">刪除</button></div>`).join("");
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{products=products.filter(p=>String(p.id)!==String(b.dataset.del));try{await api("saveProducts",{products});renderCats();renderProducts();renderAdminProducts();toast("商品已更新，所有裝置同步完成")}catch(e){toast("儲存失敗："+e.message)}});
+}
+$("loginBtn").onclick=async()=>{
+ let pw=$("adminPassword").value;if(!pw)return toast("請輸入管理員密碼");
+ adminKey=pw;
+ try{await api("login");sessionStorage.setItem("mgAdminKey",adminKey);adminOn=true;$("adminLogin").classList.add("hidden");$("adminArea").classList.remove("hidden");loadAdmin();makeQr()}
+ catch(e){adminKey="";toast("登入失敗："+e.message)}
+};
+$("saveConfig").onclick=()=>toast("後端網址已統一設定在 index.html，不需每台裝置個別設定。");
+$("refreshOrders").onclick=loadAdmin;
+$("addProduct").onclick=async()=>{
+ let name=$("newName").value.trim(),price=Number($("newPrice").value);
+ if(!name||price<=0)return toast("請輸入正確商品名稱及價格");
+ const newProduct={id:Date.now(),name,price,category:$("newCategory").value,emoji:$("newEmoji").value||"🍽️",desc:"美味現做"};
+ products.push(newProduct);
+ try{await api("saveProducts",{products});renderCats();renderProducts();renderAdminProducts();$("newName").value=$("newPrice").value=$("newEmoji").value="";toast("商品已新增，所有裝置同步完成")}
+ catch(e){products=products.filter(p=>String(p.id)!==String(newProduct.id));toast("新增失敗："+e.message)}
+};
+function makeQr(){
+ $("qrcode").innerHTML="";
+ if(window.QRCode)new QRCode($("qrcode"),{text:location.href.split("#")[0],width:180,height:180});
+ else $("qrcode").textContent="請連線後載入 QR Code 套件";
+}
+$("printQr").onclick=()=>window.print();
+setInterval(()=>{if(adminOn&&!$("adminView").classList.contains("hidden"))loadAdmin()},15000);
+loadProducts();renderCart();
+
+</script>
+</body></html>
