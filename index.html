@@ -34,7 +34,7 @@ footer{text-align:center;color:#888;font-size:12px;padding:30px}
 .modal h2{margin:0 0 8px}.option-group{padding:12px 0;border-bottom:1px solid var(--line)}
 .option-group label{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:15px;color:var(--ink)}
 .option-group input{width:auto}.admin-product{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
-.admin-product textarea{min-height:100px;font-family:ui-monospace,monospace;font-size:12px}
+.admin-product .group-editor{background:#fafafa;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}.admin-product .choice-row{display:grid;grid-template-columns:1fr 110px auto;gap:8px;align-items:center;margin:8px 0}.admin-product .group-head{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}.admin-product .small-btn{padding:8px 11px;font-size:13px}.admin-product .required-toggle{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px}.admin-product .required-toggle input{width:auto}.admin-product .muted{margin:6px 0}@media(max-width:520px){.admin-product .group-head{grid-template-columns:1fr 1fr}.admin-product .group-head input{grid-column:1/-1}.admin-product .choice-row{grid-template-columns:1fr 82px auto}}
 @media(max-width:650px){.admin-grid{grid-template-columns:1fr}.top{align-items:flex-start}.brand{font-size:19px}.wrap{padding:12px}main{padding:0 12px}}
 </style>
 </head>
@@ -51,14 +51,14 @@ footer{text-align:center;color:#888;font-size:12px;padding:30px}
  <div class="panel" id="cartPanel" style="margin-top:20px"><h2>🛒 我的購物車</h2><div id="cartItems" class="muted">目前尚未選購商品</div>
   <div class="total" id="cartTotal">合計 NT$0</div>
   <div class="row"><div><label>取餐方式</label><select id="pickup"><option>自取</option><option>內用</option></select></div><div><label>希望取餐時間</label><input id="pickupTime" type="time"></div></div>
-  <div class="row"><div><label>姓名／稱呼</label><input id="customerName" placeholder="例如：王先生"></div><div><label>聯絡電話</label><input id="phone" type="tel" placeholder="方便店家聯絡"></div></div>
+  <div class="row"><div><label>姓名／稱呼</label><input id="customerName" placeholder="例如：王先生"></div><div><label>聯絡電話</label><input id="phone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="tel" placeholder="09xxxxxxxx（可只輸入後 8 碼）"></div></div>
   <label>備註（例如：不要香菜）</label><textarea id="note" rows="2" placeholder="餐點需求或其他備註"></textarea>
   <p class="muted">送出訂單後，請留意店家確認狀態。此網站目前不收取線上付款。</p>
   <button id="submitOrder" style="width:100%">送出訂單</button>
  </div>
 </section>
 <section id="recordsView" class="hidden">
- <div class="panel"><h2>📋 訂單查詢</h2><label>輸入下單時的電話</label><div class="row"><input id="lookupPhone" placeholder="09xxxxxxxx"><button id="lookupBtn">查詢</button></div><div id="myOrders"></div></div>
+ <div class="panel"><h2>📋 訂單查詢</h2><label>輸入下單時的電話</label><div class="row"><input id="lookupPhone" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="tel" placeholder="09xxxxxxxx（可只輸入後 8 碼）"><button id="lookupBtn">查詢</button></div><div id="myOrders"></div></div>
 </section>
 <section id="adminView" class="hidden">
  <div class="hero"><h1>店家管理後台</h1><div class="muted">管理訂單、商品及今日營運狀況。</div></div>
@@ -76,16 +76,35 @@ footer{text-align:center;color:#888;font-size:12px;padding:30px}
 <footer>美吉樂早餐線上點餐系統｜著作權歸Ccy所有</footer>
 <div class="modal-backdrop" id="optionModal"><div class="modal">
   <div class="row" style="align-items:center"><h2 id="optionTitle">餐點客製化</h2><button class="secondary" id="closeOptionModal" type="button">關閉</button></div>
-  <div id="optionFields"></div><div class="total" id="optionPrice">合計 NT$0</div>
+  <div id="optionFields"></div>
+  <label for="itemNote">這份餐點的備註（選填）</label>
+  <textarea id="itemNote" rows="2" placeholder="例如：不要美乃滋、吐司烤酥一點"></textarea>
+  <div class="total" id="optionPrice">合計 NT$0</div>
   <button id="confirmAdd" style="width:100%" type="button">加入購物車</button>
 </div></div><div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // 請將下方網址換成部署後的 Apps Script 網頁應用程式網址；所有裝置共用同一個網址。
-const API_URL = "https://script.google.com/macros/s/AKfycbxH1TeGJw3ZuJ8gXI5P8NTb-qbxT5grQrp5qtQziEZLL24XI5ielCwDpJof4ivroryTBw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxtq2CpgKsCD9fQDJhcIh-nQWCOnNgl9a79IAuarIxGXfH_1C7e0iY5fHfS-45wL_gF8Q/exec";
 const $=id=>document.getElementById(id);
 let products=[], cart={}, category="全部", adminOn=false, adminKey=sessionStorage.getItem("mgAdminKey")||"", optionProduct=null;
 const money=n=>"NT$"+Number(n||0).toLocaleString("zh-TW");
+
+// 台灣手機格式：只保留數字；輸入 8 碼時自動補上 09，輸入 9 碼且以 9 開頭時補 0。
+function digitsOnly(value){ return String(value||"").replace(/\D/g,"").slice(0,10); }
+function normalizePhone(value){
+  let n=digitsOnly(value);
+  if(n.length===8) n="09"+n;
+  else if(n.length===9 && n.startsWith("9")) n="0"+n;
+  return n;
+}
+function validMobile(value){ return /^09\d{8}$/.test(value); }
+
+["phone","lookupPhone"].forEach(id=>{
+  const el=$(id);
+  el.addEventListener("input",()=>{ const clean=digitsOnly(el.value); if(el.value!==clean)el.value=clean; });
+  el.addEventListener("blur",()=>{ el.value=normalizePhone(el.value); });
+});
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2600)}
 function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function apiReady(){return API_URL.startsWith("https://script.google.com/") && API_URL.endsWith("/exec")}
@@ -113,9 +132,9 @@ function renderProducts(){
 function openProductOptions(id){
   const p=products.find(x=>String(x.id)===String(id));if(!p)return;
   optionProduct=p;
-  if(!Array.isArray(p.options)||!p.options.length){addConfiguredItem(p,[]);return}
   $("optionTitle").textContent=p.name+"｜客製化";
-  $("optionFields").innerHTML=p.options.map((g,i)=>`<div class="option-group"><b>${esc(g.name)}</b>${g.required?'<span class="pill">必選</span>':''}${(g.choices||[]).map((c,j)=>`<label><input type="radio" name="opt-${i}" value="${j}" ${j===0&&g.required!==false?'checked':''}> ${esc(c.name)} ${Number(c.price)>0?`(+${money(c.price)})`:Number(c.price)<0?`(${money(c.price)})`:''}</label>`).join("")}</div>`).join("");
+  $("itemNote").value="";
+  $("optionFields").innerHTML=(p.options||[]).map((g,i)=>`<div class="option-group"><b>${esc(g.name)}</b>${g.required?'<span class="pill">必選</span>':''}${(g.choices||[]).map((c,j)=>`<label><input type="radio" name="opt-${i}" value="${j}" ${j===0&&g.required!==false?'checked':''}> ${esc(c.name)} ${Number(c.price)>0?`(+${money(c.price)})`:Number(c.price)<0?`(${money(c.price)})`:''}</label>`).join("")}</div>`).join("");
   updateOptionPrice();$("optionModal").classList.add("show");
 }
 function selectedOptions(){
@@ -126,20 +145,22 @@ function updateOptionPrice(){
   if(!optionProduct)return;
   $("optionPrice").textContent="合計 "+money(Number(optionProduct.price)+selectedOptions().reduce((s,x)=>s+x.price,0));
 }
-function addConfiguredItem(p,opts){
+function addConfiguredItem(p,opts,itemNote=""){
   const unitPrice=Number(p.price)+opts.reduce((s,x)=>s+x.price,0);
-  const key=String(p.id)+"::"+opts.map(x=>x.group+"="+x.choice).join("|");
-  if(!cart[key])cart[key]={id:p.id,qty:0,unitPrice,options:opts,optionText:opts.map(x=>x.group+"："+x.choice).join("、")};
+  const optionText=opts.map(x=>x.group+"："+x.choice).join("、");
+  // 備註也納入品項識別，避免不同備註的同款餐點被合併。
+  const key=String(p.id)+"::"+optionText+"::note="+itemNote.trim();
+  if(!cart[key])cart[key]={id:p.id,qty:0,unitPrice,options:opts,optionText,itemNote:itemNote.trim()};
   cart[key].qty++;renderCart();toast("已加入購物車");
 }
 $("optionFields").addEventListener("change",updateOptionPrice);
 $("closeOptionModal").onclick=()=>$("optionModal").classList.remove("show");
-$("confirmAdd").onclick=()=>{if(!optionProduct)return;const opts=selectedOptions();if((optionProduct.options||[]).some((g,i)=>g.required&&!document.querySelector(`input[name="opt-${i}"]:checked`)))return toast("請完成必選項目");addConfiguredItem(optionProduct,opts);$("optionModal").classList.remove("show")};
+$("confirmAdd").onclick=()=>{if(!optionProduct)return;const opts=selectedOptions();if((optionProduct.options||[]).some((g,i)=>g.required&&!document.querySelector(`input[name="opt-${i}"]:checked`)))return toast("請完成必選項目");addConfiguredItem(optionProduct,opts,$("itemNote").value);$("optionModal").classList.remove("show")};
 
 function renderCart(){
   let rows=Object.entries(cart).filter(([,line])=>line.qty>0);
   $("cartCount").textContent=rows.reduce((s,[,line])=>s+line.qty,0);
-  $("cartItems").innerHTML=rows.length?rows.map(([key,line])=>{let p=products.find(x=>String(x.id)===String(line.id));return p?`<div class="cartline"><div><b>${esc(p.name)}</b><div class="muted">${line.optionText?esc(line.optionText)+"<br>":""}${money(line.unitPrice)} × ${line.qty}</div></div><div><button class="secondary" data-minus="${esc(key)}">−</button> ${line.qty} <button data-plus="${esc(key)}">＋</button></div></div>`:""}).join(""):"目前尚未選購商品";
+  $("cartItems").innerHTML=rows.length?rows.map(([key,line])=>{let p=products.find(x=>String(x.id)===String(line.id));return p?`<div class="cartline"><div><b>${esc(p.name)}</b><div class="muted">${line.optionText?esc(line.optionText)+"<br>":""}${line.itemNote?`餐點備註：${esc(line.itemNote)}<br>`:""}${money(line.unitPrice)} × ${line.qty}</div></div><div><button class="secondary" data-minus="${esc(key)}">−</button> ${line.qty} <button data-plus="${esc(key)}">＋</button></div></div>`:""}).join(""):"目前尚未選購商品";
   $("cartTotal").textContent="合計 "+money(total());
   document.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>{let key=b.dataset.minus;cart[key].qty--;if(cart[key].qty<=0)delete cart[key];renderCart()});
   document.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>{cart[b.dataset.plus].qty++;renderCart()});
@@ -150,10 +171,12 @@ async function loadProducts(){
   catch(e){$("products").innerHTML=`<div class="panel">商品資料載入失敗：${esc(e.message)}</div>`}
 }
 async function submit(){
-  let items=Object.values(cart).map(line=>{let p=products.find(x=>String(x.id)===String(line.id));return p?{id:p.id,name:p.name,price:Number(line.unitPrice),basePrice:Number(p.price),qty:line.qty,options:line.options||[],optionText:line.optionText||""}:null}).filter(Boolean);
+  let items=Object.values(cart).map(line=>{let p=products.find(x=>String(x.id)===String(line.id));return p?{id:p.id,name:p.name,price:Number(line.unitPrice),basePrice:Number(p.price),qty:line.qty,options:line.options||[],optionText:line.optionText||"",itemNote:line.itemNote||""}:null}).filter(Boolean);
   if(!items.length)return toast("請先選擇餐點");
-  let name=$("customerName").value.trim(),phone=$("phone").value.trim();
+  let name=$("customerName").value.trim(),phone=normalizePhone($("phone").value);
+  $("phone").value=phone;
   if(!name||!phone)return toast("請填寫姓名及電話");
+  if(!validMobile(phone))return toast("電話請輸入台灣手機號碼：09 開頭共 10 碼（也可只輸入後 8 碼）");
   let order={id:"MG"+Date.now().toString().slice(-8),createdAt:new Date().toISOString(),name,phone,pickup:$("pickup").value,pickupTime:$("pickupTime").value,note:$("note").value,items,total:items.reduce((s,x)=>s+x.price*x.qty,0),status:"新訂單"};
   try{await api("newOrder",{order});cart={};renderCart();$("customerName").value=$("phone").value=$("note").value="";toast("訂單已送出！訂單編號 "+order.id);showView("records");$("lookupPhone").value=phone;lookup()}
   catch(e){toast("送出失敗："+e.message)}
@@ -168,10 +191,12 @@ $("cartJump").onclick=()=>{$("shopView").classList.remove("hidden");$("cartPanel
 $("submitOrder").onclick=submit;
 function statusTag(s){return `<span class="pill">${esc(s)}</span>`}
 function orderHtml(o,admin=false){
- return `<div class="panel"><div class="row"><b>${esc(o.id)}</b><span>${statusTag(o.status)}</span></div><div class="muted">${new Date(o.createdAt).toLocaleString("zh-TW")}｜${esc(o.name)}｜${esc(o.phone)}</div>${(o.items||[]).map(i=>`<div class="orderline"><span>${esc(i.name)} × ${i.qty}${i.optionText?`<div class="muted">${esc(i.optionText)}</div>`:""}</span><b>${money(i.price*i.qty)}</b></div>`).join("")}<div class="total">${money(o.total)}</div><div class="muted">${esc(o.pickup)} ${esc(o.pickupTime||"")}｜備註：${esc(o.note||"無")}</div>${admin?`<label>更新狀態</label><div class="row"><select id="st-${esc(o.id)}"><option ${o.status==="新訂單"?"selected":""}>新訂單</option><option ${o.status==="製作中"?"selected":""}>製作中</option><option ${o.status==="可取餐"?"selected":""}>可取餐</option><option ${o.status==="已完成"?"selected":""}>已完成</option><option ${o.status==="已取消"?"selected":""}>已取消</option></select><button data-update="${esc(o.id)}">更新</button></div>`:""}</div>`;
+ return `<div class="panel"><div class="row"><b>${esc(o.id)}</b><span>${statusTag(o.status)}</span></div><div class="muted">${new Date(o.createdAt).toLocaleString("zh-TW")}｜${esc(o.name)}｜${esc(o.phone)}</div>${(o.items||[]).map(i=>`<div class="orderline"><span>${esc(i.name)} × ${i.qty}${i.optionText?`<div class="muted">${esc(i.optionText)}</div>`:""}${i.itemNote?`<div class="muted">餐點備註：${esc(i.itemNote)}</div>`:""}</span><b>${money(i.price*i.qty)}</b></div>`).join("")}<div class="total">${money(o.total)}</div><div class="muted">${esc(o.pickup)} ${esc(o.pickupTime||"")}｜備註：${esc(o.note||"無")}</div>${admin?`<label>更新狀態</label><div class="row"><select id="st-${esc(o.id)}"><option ${o.status==="新訂單"?"selected":""}>新訂單</option><option ${o.status==="製作中"?"selected":""}>製作中</option><option ${o.status==="可取餐"?"selected":""}>可取餐</option><option ${o.status==="已完成"?"selected":""}>已完成</option><option ${o.status==="已取消"?"selected":""}>已取消</option></select><button data-update="${esc(o.id)}">更新</button></div>`:""}</div>`;
 }
 async function lookup(){
- let phone=$("lookupPhone").value.trim();if(!phone)return toast("請輸入電話");
+ let phone=normalizePhone($("lookupPhone").value);$("lookupPhone").value=phone;
+ if(!phone)return toast("請輸入電話");
+ if(!validMobile(phone))return toast("請輸入 09 開頭共 10 碼的手機號碼，或只輸入後 8 碼");
  try{let j=await api("myOrders",{phone},"GET"),list=j.orders||[];$("myOrders").innerHTML=list.length?list.map(o=>orderHtml(o)).join(""):"查無訂單"}
  catch(e){toast("查詢失敗："+e.message)}
 }
@@ -184,10 +209,96 @@ async function loadAdmin(){
  try{let j=await api("orders");renderAdminOrders(j.orders||[]);let p=await api("products",{},"GET");products=p.products||[];renderAdminProducts();renderCats();renderProducts()}
  catch(e){$("adminOrders").textContent="讀取失敗："+e.message}
 }
+function groupEditorHtml(g, gi){
+  const choices = (g.choices || []).map((c, ci) => `
+    <div class="choice-row" data-choice="${ci}">
+      <input data-choice-name placeholder="選項名稱，例如：冰" value="${esc(c.name || "")}">
+      <input data-choice-price type="number" step="1" placeholder="加價" value="${Number(c.price || 0)}">
+      <button type="button" class="danger small-btn" data-remove-choice>刪除</button>
+    </div>`).join("");
+  return `<div class="group-editor" data-group="${gi}">
+    <div class="group-head">
+      <input data-group-name placeholder="選項名稱，例如：飲料冰度" value="${esc(g.name || "")}">
+      <label class="required-toggle"><input data-group-required type="checkbox" ${g.required === false ? "" : "checked"}> 必選</label>
+      <button type="button" class="danger small-btn" data-remove-group>刪除此選項</button>
+    </div>
+    <div class="muted">選項內容與加價（不加價填 0）</div>
+    <div class="choices">${choices}</div>
+    <button type="button" class="secondary small-btn" data-add-choice>＋ 新增內容</button>
+  </div>`;
+}
 function renderAdminProducts(){
-  $("adminProducts").innerHTML=products.map(p=>`<div class="admin-product"><div class="row" style="align-items:center"><b>${esc(p.emoji)} ${esc(p.name)}｜${money(p.price)}</b><button class="danger" data-del="${p.id}">刪除商品</button></div><label>進階選單設定（JSON 格式；每個選項可設定加價）</label><textarea id="opts-${p.id}" spellcheck="false">${esc(JSON.stringify(p.options||[],null,2))}</textarea><button class="secondary" data-save-options="${p.id}" style="margin-top:8px">儲存此商品選單</button></div>`).join("");
-  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{products=products.filter(p=>String(p.id)!==String(b.dataset.del));try{await api("saveProducts",{products});renderCats();renderProducts();renderAdminProducts();toast("商品已更新，所有裝置同步完成")}catch(e){toast("儲存失敗："+e.message)}});
-  document.querySelectorAll("[data-save-options]").forEach(b=>b.onclick=async()=>{const p=products.find(x=>String(x.id)===String(b.dataset.saveOptions));try{const opts=JSON.parse($("opts-"+p.id).value||"[]");if(!Array.isArray(opts))throw Error("最外層必須是陣列");opts.forEach(g=>{if(!g.name||!Array.isArray(g.choices)||!g.choices.length)throw Error("每個選項需有 name 和至少一個 choices");g.choices.forEach(c=>{if(!c.name||!Number.isFinite(Number(c.price||0)))throw Error("選項名稱或加價格式錯誤")})});p.options=opts;await api("saveProducts",{products});renderAdminProducts();renderProducts();toast("進階選單已儲存並同步")}catch(e){toast("設定格式錯誤："+e.message)}});
+  $("adminProducts").innerHTML=products.map(p=>`<div class="admin-product" data-product="${p.id}">
+    <div class="row" style="align-items:center">
+      <div><b>${esc(p.emoji)} ${esc(p.name)}｜${money(p.price)}</b><div class="muted">基本價格：${money(p.price)}</div></div>
+      <button class="danger small-btn" data-del="${p.id}">刪除商品</button>
+    </div>
+    <h4>進階選單設定</h4>
+    <p class="muted">例如：飲料冰度、甜度、加蛋、加起司。每個選項可設定是否必選及加價。</p>
+    <div class="groups">${(p.options||[]).map((g,gi)=>groupEditorHtml(g,gi)).join("")}</div>
+    <div class="row" style="margin-top:10px">
+      <button type="button" class="secondary" data-add-group>＋ 新增選項群組</button>
+      <button type="button" data-save-options="${p.id}">儲存此商品設定</button>
+    </div>
+  </div>`).join("");
+
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("確定刪除此商品？"))return;
+    const old=products.slice();
+    products=products.filter(p=>String(p.id)!==String(b.dataset.del));
+    try{await api("saveProducts",{products});renderCats();renderProducts();renderAdminProducts();toast("商品已刪除並同步")}
+    catch(e){products=old;renderAdminProducts();toast("刪除失敗："+e.message)}
+  });
+
+  $("adminProducts").onclick=async e=>{
+    const btn=e.target.closest("button");if(!btn)return;
+    const card=btn.closest(".admin-product");if(!card)return;
+    if(btn.hasAttribute("data-add-group")){
+      const oldY=window.scrollY,wrap=card.querySelector(".groups");
+      wrap.insertAdjacentHTML("beforeend",groupEditorHtml({name:"",required:true,choices:[{name:"",price:0}]},wrap.children.length));
+      const target=wrap.lastElementChild?.querySelector("[data-group-name]");
+      if(target)target.focus({preventScroll:true});
+      requestAnimationFrame(()=>window.scrollTo(0,oldY));
+    } else if(btn.hasAttribute("data-remove-group")){
+      const oldY=window.scrollY;btn.closest(".group-editor").remove();
+      requestAnimationFrame(()=>window.scrollTo(0,oldY));
+    } else if(btn.hasAttribute("data-add-choice")){
+      const oldY=window.scrollY,wrap=btn.closest(".group-editor").querySelector(".choices");
+      wrap.insertAdjacentHTML("beforeend",`<div class="choice-row">
+        <input data-choice-name placeholder="選項名稱，例如：冰">
+        <input data-choice-price type="number" step="1" placeholder="加價" value="0">
+        <button type="button" class="danger small-btn" data-remove-choice>刪除</button>
+      </div>`);
+      const target=wrap.lastElementChild?.querySelector("[data-choice-name]");
+      if(target)target.focus({preventScroll:true});
+      requestAnimationFrame(()=>window.scrollTo(0,oldY));
+    } else if(btn.hasAttribute("data-remove-choice")){
+      const oldY=window.scrollY;btn.closest(".choice-row").remove();
+      requestAnimationFrame(()=>window.scrollTo(0,oldY));
+    } else if(btn.hasAttribute("data-save-options")){
+      const p=products.find(x=>String(x.id)===String(btn.dataset.saveOptions));
+      try{
+        const groups=[...card.querySelectorAll(".group-editor")].map(group=>{
+          const name=group.querySelector("[data-group-name]").value.trim();
+          const required=group.querySelector("[data-group-required]").checked;
+          const choices=[...group.querySelectorAll(".choice-row")].map(row=>({
+            name:row.querySelector("[data-choice-name]").value.trim(),
+            price:Number(row.querySelector("[data-choice-price]").value||0)
+          })).filter(c=>c.name);
+          if(!name)throw Error("請填寫每個選項群組名稱");
+          if(!choices.length)throw Error("「"+name+"」至少要新增一個內容");
+          if(choices.some(c=>!Number.isFinite(c.price)))throw Error("加價請填寫數字");
+          return {name,required,choices};
+        });
+        p.options=groups;
+        await api("saveProducts",{products});
+        const refreshed=await api("products",{},"GET");
+        products=refreshed.products||products;
+        renderAdminProducts();renderProducts();
+        toast("進階選單已儲存，顧客端同步完成");
+      }catch(err){toast("儲存失敗："+err.message)}
+    }
+  };
 }
 
 $("loginBtn").onclick=async()=>{
@@ -212,7 +323,13 @@ function makeQr(){
  else $("qrcode").textContent="請連線後載入 QR Code 套件";
 }
 $("printQr").onclick=()=>window.print();
-setInterval(()=>{if(adminOn&&!$("adminView").classList.contains("hidden"))loadAdmin()},15000);
+async function refreshAdminOrdersOnly(){
+  if(!adminOn||$("adminView").classList.contains("hidden"))return;
+  try{const j=await api("orders");renderAdminOrders(j.orders||[])}
+  catch(e){$("adminOrders").textContent="讀取失敗："+e.message}
+}
+// 自動更新只刷新訂單，不重畫商品編輯器，避免輸入時焦點與畫面位置突然跳動。
+setInterval(refreshAdminOrdersOnly,15000);
 loadProducts();renderCart();
 
 </script>
